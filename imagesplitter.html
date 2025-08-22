@@ -1,80 +1,77 @@
-import React, { useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Splitter Preview</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 20px; }
+    canvas { border: 1px solid #ccc; margin-top: 20px; max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Image Splitter Preview (3x3 A4 Grid)</h1>
+  <input type="file" id="upload" accept="image/*">
+  <br><br>
+  <label>Scale: <input type="range" id="scale" min="10" max="200" value="100"> <span id="scaleVal">100%</span></label>
+  <br>
+  <canvas id="canvas"></canvas>
 
-export default function ImageSplitter() {
-  const [image, setImage] = useState(null);
-  const [scale, setScale] = useState(100);
-  const canvasRef = useRef(null);
-
-  const cols = 3;
-  const rows = 3;
-
-  const handleUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setImage(ev.target.result);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const drawPreview = () => {
-    if (!image) return;
-    const canvas = canvasRef.current;
+  <script>
+    const upload = document.getElementById("upload");
+    const scaleSlider = document.getElementById("scale");
+    const scaleVal = document.getElementById("scaleVal");
+    const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.src = image;
-    img.onload = () => {
-      const scaledWidth = (img.width * scale) / 100;
-      const scaledHeight = (img.height * scale) / 100;
-      canvas.width = scaledWidth;
-      canvas.height = scaledHeight;
 
-      ctx.clearRect(0, 0, scaledWidth, scaledHeight);
-      ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+    let img = null;
+    let scale = 100;
+    const cols = 3, rows = 3;
+
+    upload.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        img = new Image();
+        img.onload = () => draw();
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    scaleSlider.addEventListener("input", e => {
+      scale = e.target.value;
+      scaleVal.textContent = scale + "%";
+      draw();
+    });
+
+    function draw() {
+      if (!img) return;
+      const scaledW = img.width * scale / 100;
+      const scaledH = img.height * scale / 100;
+      canvas.width = scaledW;
+      canvas.height = scaledH;
+
+      ctx.clearRect(0, 0, scaledW, scaledH);
+      ctx.drawImage(img, 0, 0, scaledW, scaledH);
 
       // Draw grid
-      const cellW = scaledWidth / cols;
-      const cellH = scaledHeight / rows;
+      const cellW = scaledW / cols;
+      const cellH = scaledH / rows;
       ctx.strokeStyle = "red";
       for (let i = 1; i < cols; i++) {
         ctx.beginPath();
         ctx.moveTo(i * cellW, 0);
-        ctx.lineTo(i * cellW, scaledHeight);
+        ctx.lineTo(i * cellW, scaledH);
         ctx.stroke();
       }
       for (let j = 1; j < rows; j++) {
         ctx.beginPath();
         ctx.moveTo(0, j * cellH);
-        ctx.lineTo(scaledWidth, j * cellH);
+        ctx.lineTo(scaledW, j * cellH);
         ctx.stroke();
       }
-    };
-  };
-
-  return (
-    <div className="flex flex-col items-center p-4 gap-4">
-      <h1 className="text-2xl font-bold">Image Splitter Preview</h1>
-      <input type="file" accept="image/*" onChange={handleUpload} />
-
-      {image && (
-        <>
-          <div className="w-full max-w-2xl">
-            <Slider
-              value={[scale]}
-              min={10}
-              max={200}
-              step={1}
-              onValueChange={(v) => setScale(v[0])}
-            />
-            <p className="text-center">Scale: {scale}%</p>
-          </div>
-          <canvas ref={canvasRef} className="border shadow-lg" />
-          <Button onClick={drawPreview}>Update Preview</Button>
-        </>
-      )}
-    </div>
-  );
-}
-
+    }
+  </script>
+</body>
+</html>
