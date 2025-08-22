@@ -6,15 +6,22 @@
   <style>
     body { font-family: sans-serif; text-align: center; margin: 20px; }
     canvas { border: 1px solid #ccc; margin-top: 20px; max-width: 100%; }
+    button { margin-top: 15px; padding: 8px 16px; font-size: 16px; }
   </style>
 </head>
 <body>
   <h1>Image Splitter Preview (3x3 A4 Grid)</h1>
   <input type="file" id="upload" accept="image/*">
   <br><br>
-  <label>Scale: <input type="range" id="scale" min="10" max="200" value="100"> <span id="scaleVal">100%</span></label>
+  <label>
+    Scale: 
+    <input type="range" id="scale" min="10" max="200" value="100"> 
+    <span id="scaleVal">100%</span>
+  </label>
   <br>
   <canvas id="canvas"></canvas>
+  <br>
+  <button id="downloadBtn" disabled>Download Split Pages</button>
 
   <script>
     const upload = document.getElementById("upload");
@@ -22,6 +29,7 @@
     const scaleVal = document.getElementById("scaleVal");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
+    const downloadBtn = document.getElementById("downloadBtn");
 
     let img = null;
     let scale = 100;
@@ -33,7 +41,10 @@
       const reader = new FileReader();
       reader.onload = ev => {
         img = new Image();
-        img.onload = () => draw();
+        img.onload = () => {
+          draw();
+          downloadBtn.disabled = false;
+        };
         img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
@@ -72,6 +83,34 @@
         ctx.stroke();
       }
     }
+
+    downloadBtn.addEventListener("click", () => {
+      if (!img) return;
+      const scaledW = img.width * scale / 100;
+      const scaledH = img.height * scale / 100;
+      const cellW = scaledW / cols;
+      const cellH = scaledH / rows;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tempCanvas = document.createElement("canvas");
+          const tctx = tempCanvas.getContext("2d");
+          tempCanvas.width = cellW;
+          tempCanvas.height = cellH;
+
+          tctx.drawImage(
+            canvas,
+            c * cellW, r * cellH, cellW, cellH, // source rect
+            0, 0, cellW, cellH                 // dest rect
+          );
+
+          const link = document.createElement("a");
+          link.download = `page_${r+1}_${c+1}.png`;
+          link.href = tempCanvas.toDataURL("image/png");
+          link.click();
+        }
+      }
+    });
   </script>
 </body>
 </html>
