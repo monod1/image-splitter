@@ -4,24 +4,76 @@
   <meta charset="UTF-8">
   <title>Image Splitter Preview</title>
   <style>
-    body { font-family: sans-serif; text-align: center; margin: 20px; }
-    canvas { border: 1px solid #ccc; margin-top: 20px; max-width: 100%; }
-    button { margin-top: 15px; padding: 8px 16px; font-size: 16px; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      padding: 10px;
+      background: #333;
+      color: white;
+      width: 100%;
+      text-align: center;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 10px;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      border: 2px solid #666;
+      margin: 10px 0;
+      max-width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+    }
+    .controls {
+      margin-top: 10px;
+    }
+    .big-button {
+      margin-top: 15px;
+      padding: 12px 24px;
+      font-size: 18px;
+      font-weight: bold;
+      background: #0078D7;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .big-button:hover {
+      background: #005bb5;
+    }
   </style>
 </head>
 <body>
-  <h1>Image Splitter Preview (3x3 A4 Grid)</h1>
-  <input type="file" id="upload" accept="image/*">
-  <br><br>
-  <label>
-    Scale: 
-    <input type="range" id="scale" min="10" max="200" value="100"> 
-    <span id="scaleVal">100%</span>
-  </label>
-  <br>
-  <canvas id="canvas"></canvas>
-  <br>
-  <button id="downloadBtn" disabled>Download Split Pages</button>
+  <header>
+    <h1>Image Splitter (3×3 A4 Grid)</h1>
+  </header>
+  <main>
+    <input type="file" id="upload" accept="image/*"><br>
+    <label>
+      Scale: 
+      <input type="range" id="scale" min="10" max="200" value="100"> 
+      <span id="scaleVal">100%</span>
+    </label>
+    <canvas id="canvas"></canvas>
+    <button id="downloadBtn" class="big-button" disabled>⬇ Download Split Pages</button>
+  </main>
 
   <script>
     const upload = document.getElementById("upload");
@@ -58,38 +110,68 @@
 
     function draw() {
       if (!img) return;
+
+      // Scale image
       const scaledW = img.width * scale / 100;
       const scaledH = img.height * scale / 100;
-      canvas.width = scaledW;
-      canvas.height = scaledH;
 
-      ctx.clearRect(0, 0, scaledW, scaledH);
-      ctx.drawImage(img, 0, 0, scaledW, scaledH);
+      // Limit canvas to window size (leave some space for UI)
+      const maxW = window.innerWidth * 0.9;
+      const maxH = window.innerHeight * 0.7;
+      let finalW = scaledW;
+      let finalH = scaledH;
+
+      if (finalW > maxW) {
+        const ratio = maxW / finalW;
+        finalW *= ratio;
+        finalH *= ratio;
+      }
+      if (finalH > maxH) {
+        const ratio = maxH / finalH;
+        finalW *= ratio;
+        finalH *= ratio;
+      }
+
+      canvas.width = finalW;
+      canvas.height = finalH;
+
+      ctx.clearRect(0, 0, finalW, finalH);
+      ctx.drawImage(img, 0, 0, finalW, finalH);
 
       // Draw grid
-      const cellW = scaledW / cols;
-      const cellH = scaledH / rows;
+      const cellW = finalW / cols;
+      const cellH = finalH / rows;
       ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+
       for (let i = 1; i < cols; i++) {
         ctx.beginPath();
         ctx.moveTo(i * cellW, 0);
-        ctx.lineTo(i * cellW, scaledH);
+        ctx.lineTo(i * cellW, finalH);
         ctx.stroke();
       }
       for (let j = 1; j < rows; j++) {
         ctx.beginPath();
         ctx.moveTo(0, j * cellH);
-        ctx.lineTo(scaledW, j * cellH);
+        ctx.lineTo(finalW, j * cellH);
         ctx.stroke();
       }
     }
 
     downloadBtn.addEventListener("click", () => {
       if (!img) return;
-      const scaledW = img.width * scale / 100;
-      const scaledH = img.height * scale / 100;
-      const cellW = scaledW / cols;
-      const cellH = scaledH / rows;
+
+      const fullW = img.width * scale / 100;
+      const fullH = img.height * scale / 100;
+      const cellW = fullW / cols;
+      const cellH = fullH / rows;
+
+      // Use original scale for splitting, not resized preview
+      const fullCanvas = document.createElement("canvas");
+      const fullCtx = fullCanvas.getContext("2d");
+      fullCanvas.width = fullW;
+      fullCanvas.height = fullH;
+      fullCtx.drawImage(img, 0, 0, fullW, fullH);
 
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -99,9 +181,9 @@
           tempCanvas.height = cellH;
 
           tctx.drawImage(
-            canvas,
-            c * cellW, r * cellH, cellW, cellH, // source rect
-            0, 0, cellW, cellH                 // dest rect
+            fullCanvas,
+            c * cellW, r * cellH, cellW, cellH, // source
+            0, 0, cellW, cellH                 // destination
           );
 
           const link = document.createElement("a");
@@ -111,6 +193,8 @@
         }
       }
     });
+
+    window.addEventListener("resize", draw);
   </script>
 </body>
 </html>
