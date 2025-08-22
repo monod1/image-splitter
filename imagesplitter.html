@@ -1,71 +1,80 @@
-import tkinter as tk
-from tkinter import filedialog
-from PIL import Image, ImageTk
+import React, { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 
-class ImageSplitterApp:
-    def __init__(self, master, image_path, cols=3, rows=3, dpi=300):
-        self.master = master
-        self.cols = cols
-        self.rows = rows
-        self.dpi = dpi
+export default function ImageSplitter() {
+  const [image, setImage] = useState(null);
+  const [scale, setScale] = useState(100);
+  const canvasRef = useRef(null);
 
-        # Load image
-        self.original_img = Image.open(image_path)
-        self.img = self.original_img.copy()
+  const cols = 3;
+  const rows = 3;
 
-        # A4 size at dpi
-        self.a4_width_px = int(8.27 * dpi)
-        self.a4_height_px = int(11.69 * dpi)
+  const handleUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setImage(ev.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
 
-        # Resize to fit grid size
-        target_width = cols * self.a4_width_px
-        target_height = rows * self.a4_height_px
-        self.img = self.img.resize((target_width, target_height), Image.LANCZOS)
+  const drawPreview = () => {
+    if (!image) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.src = image;
+    img.onload = () => {
+      const scaledWidth = (img.width * scale) / 100;
+      const scaledHeight = (img.height * scale) / 100;
+      canvas.width = scaledWidth;
+      canvas.height = scaledHeight;
 
-        # Setup canvas
-        self.canvas = tk.Canvas(master, bg="white")
-        self.canvas.pack(fill=tk.BOTH, expand=True)
+      ctx.clearRect(0, 0, scaledWidth, scaledHeight);
+      ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
 
-        # Display image
-        self.tk_img = ImageTk.PhotoImage(self.img)
-        self.image_id = self.canvas.create_image(0, 0, anchor="nw", image=self.tk_img)
+      // Draw grid
+      const cellW = scaledWidth / cols;
+      const cellH = scaledHeight / rows;
+      ctx.strokeStyle = "red";
+      for (let i = 1; i < cols; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * cellW, 0);
+        ctx.lineTo(i * cellW, scaledHeight);
+        ctx.stroke();
+      }
+      for (let j = 1; j < rows; j++) {
+        ctx.beginPath();
+        ctx.moveTo(0, j * cellH);
+        ctx.lineTo(scaledWidth, j * cellH);
+        ctx.stroke();
+      }
+    };
+  };
 
-        # Draw grid
-        self.draw_grid()
+  return (
+    <div className="flex flex-col items-center p-4 gap-4">
+      <h1 className="text-2xl font-bold">Image Splitter Preview</h1>
+      <input type="file" accept="image/*" onChange={handleUpload} />
 
-        # Bind resizing
-        self.canvas.bind("<Configure>", self.on_resize)
+      {image && (
+        <>
+          <div className="w-full max-w-2xl">
+            <Slider
+              value={[scale]}
+              min={10}
+              max={200}
+              step={1}
+              onValueChange={(v) => setScale(v[0])}
+            />
+            <p className="text-center">Scale: {scale}%</p>
+          </div>
+          <canvas ref={canvasRef} className="border shadow-lg" />
+          <Button onClick={drawPreview}>Update Preview</Button>
+        </>
+      )}
+    </div>
+  );
+}
 
-    def draw_grid(self):
-        self.canvas.delete("grid")
-        w, h = self.img.size
-        scaled_w = self.tk_img.width()
-        scaled_h = self.tk_img.height()
-        cell_w = scaled_w / self.cols
-        cell_h = scaled_h / self.rows
-
-        for i in range(1, self.cols):
-            x = i * cell_w
-            self.canvas.create_line(x, 0, x, scaled_h, fill="red", tags="grid")
-
-        for j in range(1, self.rows):
-            y = j * cell_h
-            self.canvas.create_line(0, y, scaled_w, y, fill="red", tags="grid")
-
-    def on_resize(self, event):
-        # Scale image to canvas size
-        resized_img = self.img.copy().resize((event.width, event.height), Image.LANCZOS)
-        self.tk_img = ImageTk.PhotoImage(resized_img)
-        self.canvas.itemconfig(self.image_id, image=self.tk_img)
-        self.draw_grid()
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Image Splitter Preview")
-
-    # Ask user to select image
-    file_path = filedialog.askopenfilename(title="Select an image", filetypes=[("Images", "*.png;*.jpg;*.jpeg")])
-    if file_path:
-        app = ImageSplitterApp(root, file_path, cols=3, rows=3)
-        root.mainloop()
